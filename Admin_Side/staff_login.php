@@ -4,25 +4,23 @@ session_start();
 
 $error = null;
 
-// Only process when the "Authorize Entry" button is clicked
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['login'])) {
     $email = $_POST['email'] ?? ''; 
     $password = $_POST['password'] ?? '';
 
     try {
-        // 1. Query the dedicated Staff table
-        // We use Email and Password as the primary credentials
-        $stmt = $pdo->prepare("SELECT * FROM Staff WHERE Email = ? AND Password = ?");
+        // FIXED: Updated 'Staff' to lowercase 'staff' and changed 'Email' to 'Staff_Email'
+        $stmt = $pdo->prepare("SELECT * FROM staff WHERE Staff_Email = ? AND Password = ?");
         $stmt->execute([$email, $password]);
         $staff = $stmt->fetch();
 
         if ($staff) {
-            // 2. Set staff-specific session variables
+            // FIXED: Set session variables to match your database column names
             $_SESSION['staff_id']   = $staff['Staff_ID'];
-            $_SESSION['staff_name'] = $staff['First_Name'];
+            $_SESSION['staff_name'] = $staff['Staff_Fname']; // Using Staff_Fname
             $_SESSION['role']       = 'staff';
             
-            // 3. Log staff entry to MongoDB (Meets your Hybrid DB requirement)
+            // Log staff entry to MongoDB
             if (isset($m_manager)) {
                 $bulk = new MongoDB\Driver\BulkWrite;
                 $bulk->insert([

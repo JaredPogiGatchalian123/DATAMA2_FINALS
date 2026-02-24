@@ -4,21 +4,21 @@ session_start();
 
 $error = null;
 
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['login'])) {
+// Removed isset($_POST['login']) as it's cleaner to check method only
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $email = $_POST['email'] ?? ''; 
     $password = $_POST['password'] ?? '';
 
     try {
-        // FIXED: Querying only existing columns in the Owner table
-        $stmt = $pdo->prepare("SELECT * FROM Owner WHERE Email = ? AND Password = ?");
+        // FIXED: Using lowercase 'owner' to match your V2 schema
+        $stmt = $pdo->prepare("SELECT * FROM owner WHERE Email = ? AND Password = ?");
         $stmt->execute([$email, $password]);
         $user = $stmt->fetch();
 
         if ($user) {
-            // Set sessions for the customer
             $_SESSION['owner_id'] = $user['Owner_ID']; 
             $_SESSION['owner_name'] = $user['Owner_Fname']; 
-            $_SESSION['role'] = 'customer'; // Manually set for page security checks
+            $_SESSION['role'] = 'customer'; 
             
             header("Location: customer_site.php");
             exit();

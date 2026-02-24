@@ -8,13 +8,20 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'staff') {
     exit();
 }
 
-// Fetch Pet details joined with their Owner's name for a true "Patient" list
-// p.Age and p.Pet_Type are retrieved directly from the Pet table
-$sql = "SELECT p.*, o.Owner_Fname, o.Owner_Lname, o.Phone 
+/** * SQL QUERY: Explicitly selecting Age to ensure it is fetched
+ * Joined with Owner's name for a true "Patient" list
+ */
+$sql = "SELECT p.Pet_ID, p.Pet_Name, p.Pet_Type, p.Breed, p.Age, 
+               o.Owner_Fname, o.Owner_Lname, o.Phone 
         FROM Pet p 
         JOIN Owner o ON p.Owner_ID = o.Owner_ID 
         ORDER BY p.Pet_Name ASC";
-$patients = $pdo->query($sql);
+
+try {
+    $patients = $pdo->query($sql);
+} catch (PDOException $e) {
+    die("Database Error: " . $e->getMessage());
+}
 ?>
 
 <!DOCTYPE html>
@@ -61,7 +68,7 @@ $patients = $pdo->query($sql);
                             <?php echo htmlspecialchars($row['Pet_Type'] . " (" . $row['Breed'] . ")"); ?>
                         </td>
                         <td style="padding: 15px;">
-                            <?php echo htmlspecialchars($row['Age']); ?> yrs
+                            <strong><?php echo htmlspecialchars($row['Age'] ?? '0'); ?></strong> yrs
                         </td>
                         <td style="padding: 15px;">
                             <?php echo htmlspecialchars($row['Owner_Fname'] . " " . $row['Owner_Lname']); ?>

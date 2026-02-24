@@ -17,7 +17,7 @@ $items = $pdo->query($sql);
 
 // 2. Fetch categories for the dropdown from v2 Table
 $categories_query = $pdo->query("SELECT * FROM Categories");
-$categories = $categories_query->fetchAll();
+$categories = $categories_query->fetchAll(PDO::FETCH_ASSOC);
 ?>
 
 <!DOCTYPE html>
@@ -29,7 +29,7 @@ $categories = $categories_query->fetchAll();
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
     <style>
-        .main-wrapper { margin-left: 85px; padding: 40px; }
+        .main-wrapper { margin-left: 90px; padding: 40px; background-color: #f8f9fa; min-height: 100vh; }
         .inventory-table { width: 100%; border-collapse: separate; border-spacing: 0; background: white; border-radius: 15px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
         .inventory-table th { background: #2bcbba; color: white; padding: 18px; text-align: left; font-size: 0.85rem; text-transform: uppercase; }
         .inventory-table td { padding: 18px; border-bottom: 1px solid #f1f1f1; font-size: 0.95rem; color: #2d3436; }
@@ -39,16 +39,21 @@ $categories = $categories_query->fetchAll();
             background: rgba(0,0,0,0.4); backdrop-filter: blur(4px); 
             z-index: 2000; align-items: center; justify-content: center; 
         }
-        .modal-card { background: white; padding: 35px; border-radius: 25px; width: 420px; box-shadow: 0 15px 40px rgba(0,0,0,0.15); }
+        .modal-card { background: white; padding: 35px; border-radius: 25px; width: 450px; box-shadow: 0 15px 40px rgba(0,0,0,0.15); }
         .form-group { margin-bottom: 20px; }
         .form-group label { display: block; margin-bottom: 8px; font-weight: 600; color: #636e72; font-size: 0.9rem; }
-        .form-group input, .form-group select { width: 100%; padding: 14px; border: 1.5px solid #eee; border-radius: 12px; outline: none; }
+        .form-group input, .form-group select { width: 100%; padding: 14px; border: 1.5px solid #eee; border-radius: 12px; outline: none; box-sizing: border-box; }
 
         .btn-action { background: none; border: none; cursor: pointer; font-size: 1.1rem; transition: 0.2s; }
         .btn-deduct { color: #6c5ce7; margin-right: 8px; }
         .btn-restock { color: #f39c12; margin-right: 8px; }
         .btn-edit { color: #2bcbba; }
         .btn-delete { color: #ff7675; margin-left: 8px; }
+
+        .btn-new-supply { 
+            background: #2bcbba; color: white; border: none; padding: 12px 25px; border-radius: 12px; font-weight: 700; cursor: pointer; transition: 0.3s;
+        }
+        .btn-new-supply:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(43, 203, 186, 0.3); }
     </style>
 </head>
 <body>
@@ -61,7 +66,7 @@ $categories = $categories_query->fetchAll();
             <h2 style="color: #2d3436;"><i class="fas fa-boxes" style="color: #2bcbba;"></i> Medical Inventory</h2>
             <p style="color: #7f8c8d; font-size: 0.9rem;">Manage clinic supplies and track stock levels</p>
         </div>
-        <button class="btn-new-supply" onclick="openModal('addSupplyModal')" style="background: white; border: 1px solid #ddd; padding: 8px 15px; border-radius: 8px; cursor: pointer; font-weight: 600;">+ NEW SUPPLY</button>
+        <button class="btn-new-supply" onclick="openModal('addSupplyModal')"><i class="fas fa-plus"></i> NEW SUPPLY</button>
     </div>
 
     <table class="inventory-table">
@@ -69,9 +74,9 @@ $categories = $categories_query->fetchAll();
             <tr>
                 <th>Item ID</th>
                 <th>Item Name</th>
+                <th>Category</th>
                 <th>Price</th>
                 <th>Stock Level</th>
-                <th>Status</th>
                 <th>Action</th>
             </tr>
         </thead>
@@ -80,18 +85,9 @@ $categories = $categories_query->fetchAll();
             <tr>
                 <td>#<strong><?php echo $row['Item_ID']; ?></strong></td>
                 <td><?php echo htmlspecialchars($row['Item_Name']); ?></td>
+                <td><span style="color: #7f8c8d; font-size: 0.8rem;"><?php echo htmlspecialchars($row['Category_Name'] ?? 'Uncategorized'); ?></span></td>
                 <td>₱<?php echo number_format($row['Price_Per_Unit'], 2); ?></td>
-                <td><?php echo $row['Current_Stock']; ?> Units</td>
-                <td>
-                    <?php 
-                        $minStock = $row['Min_Stock_Level'] ?? 5; 
-                        if($row['Current_Stock'] <= $minStock): 
-                    ?>
-                        <span style="color: #fa5252; font-weight: 700;">LOW</span>
-                    <?php else: ?>
-                        <span style="color: #40c057; font-weight: 700;">GOOD</span>
-                    <?php endif; ?>
-                </td>
+                <td><strong><?php echo $row['Current_Stock']; ?></strong> Units</td>
                 <td>
                     <button class="btn-action btn-deduct" title="Reduce Stock" onclick="openDeductModal(<?php echo $row['Item_ID']; ?>, '<?php echo htmlspecialchars($row['Item_Name']); ?>', <?php echo $row['Current_Stock']; ?>)">
                         <i class="fas fa-minus-circle"></i>
@@ -112,6 +108,63 @@ $categories = $categories_query->fetchAll();
     </table>
 </div>
 
+<div id="addSupplyModal" class="modal-overlay">
+    <div class="modal-card">
+        <h3><i class="fas fa-plus-circle" style="color: #2bcbba;"></i> Add New Supply</h3>
+        <form action="process_add_supply.php" method="POST">
+            <div class="form-group">
+                <label>Item Name</label>
+                <input type="text" name="item_name" required placeholder="e.g. Parvo Vaccine">
+            </div>
+            
+            <div class="form-group">
+                <label>Category</label>
+                <select name="category_id" required>
+                    <option value="">-- Select Category --</option>
+                    <?php if (count($categories) > 0): ?>
+                        <?php foreach($categories as $cat): ?>
+                            <option value="<?php echo $cat['Category_ID']; ?>">
+                                <?php echo htmlspecialchars($cat['Category_Name']); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <option value="">No categories found in DB</option>
+                    <?php endif; ?>
+                </select>
+            </div>
+
+            <div style="display: flex; gap: 15px;">
+                <div class="form-group" style="flex: 1;">
+                    <label>Initial Stock</label>
+                    <input type="number" name="initial_stock" min="0" value="0" required>
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label>Price per Unit</label>
+                    <input type="number" name="price" step="0.01" required>
+                </div>
+            </div>
+            <button type="submit" style="width:100%; background:#2bcbba; color:white; border:none; padding:15px; border-radius:12px; font-weight:700; cursor:pointer;">SAVE ITEM</button>
+            <button type="button" onclick="closeModal('addSupplyModal')" style="width:100%; border:none; padding:10px; margin-top:10px; cursor:pointer; background:none; color:#7f8c8d;">Cancel</button>
+        </form>
+    </div>
+</div>
+
+<div id="restockModal" class="modal-overlay">
+    <div class="modal-card">
+        <h3><i class="fas fa-plus-square" style="color: #f39c12;"></i> Restock Item</h3>
+        <p id="restock_item_display" style="color: #7f8c8d; margin-bottom: 20px; font-weight:600;"></p>
+        <form action="process_restock_stock.php" method="POST">
+            <input type="hidden" name="item_id" id="restock_item_id">
+            <div class="form-group">
+                <label>Quantity to Add</label>
+                <input type="number" name="add_qty" min="1" required>
+            </div>
+            <button type="submit" style="width:100%; background:#f39c12; color:white; border:none; padding:15px; border-radius:12px; font-weight:700; cursor:pointer;">CONFIRM RESTOCK</button>
+            <button type="button" onclick="closeModal('restockModal')" style="width:100%; border:none; padding:10px; margin-top:10px; cursor:pointer; background:none; color:#7f8c8d;">Cancel</button>
+        </form>
+    </div>
+</div>
+
 <div id="deductModal" class="modal-overlay">
     <div class="modal-card">
         <h3><i class="fas fa-minus-circle" style="color: #6c5ce7;"></i> Reduce Stock</h3>
@@ -120,10 +173,29 @@ $categories = $categories_query->fetchAll();
             <input type="hidden" name="item_id" id="deduct_item_id">
             <div class="form-group">
                 <label>Quantity to Reduce</label>
-                <input type="number" name="reduce_qty" id="reduce_input" min="1" placeholder="Enter amount..." required>
+                <input type="number" name="reduce_qty" id="reduce_input" min="1" required>
             </div>
             <button type="submit" style="width:100%; background:#6c5ce7; color:white; border:none; padding:15px; border-radius:12px; font-weight:700; cursor:pointer;">CONFIRM DEDUCTION</button>
             <button type="button" onclick="closeModal('deductModal')" style="width:100%; border:none; padding:10px; margin-top:10px; cursor:pointer; background:none; color:#7f8c8d;">Cancel</button>
+        </form>
+    </div>
+</div>
+
+<div id="editSupplyModal" class="modal-overlay">
+    <div class="modal-card">
+        <h3><i class="fas fa-edit" style="color: #2bcbba;"></i> Edit Item Details</h3>
+        <form action="process_edit_supply.php" method="POST">
+            <input type="hidden" name="item_id" id="edit_item_id">
+            <div class="form-group">
+                <label>Item Name</label>
+                <input type="text" name="item_name" id="edit_item_name" required>
+            </div>
+            <div class="form-group">
+                <label>Price per Unit</label>
+                <input type="number" name="price" id="edit_price" step="0.01" required>
+            </div>
+            <button type="submit" style="width:100%; background:#2bcbba; color:white; border:none; padding:15px; border-radius:12px; font-weight:700; cursor:pointer;">UPDATE ITEM</button>
+            <button type="button" onclick="closeModal('editSupplyModal')" style="width:100%; border:none; padding:10px; margin-top:10px; cursor:pointer; background:none; color:#7f8c8d;">Cancel</button>
         </form>
     </div>
 </div>
@@ -141,7 +213,6 @@ $categories = $categories_query->fetchAll();
     }
 
     function openRestockModal(id, name) {
-        // Implementation for restock modal trigger
         document.getElementById('restock_item_id').value = id;
         document.getElementById('restock_item_display').innerText = "Item: " + name;
         openModal('restockModal');
@@ -160,17 +231,15 @@ $categories = $categories_query->fetchAll();
             text: "Removes from MySQL and logs to MongoDB.",
             icon: 'warning',
             showCancelButton: true,
-            confirmButtonColor: '#ff7675',
+            confirmButtonColor: '#fa5252',
             confirmButtonText: 'Yes, delete it!'
         }).then((result) => { if (result.isConfirmed) { window.location.href = 'process_delete_supply.php?id=' + id; } });
     }
 
+    // Success Notification Logic
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.has('success')) {
-        let msg = "Success!";
-        if(urlParams.get('success') === 'restocked') msg = "Stock added and logged to MongoDB.";
-        if(urlParams.get('success') === 'deducted') msg = "Stock reduced and logged to MongoDB.";
-        Swal.fire({ title: 'Success!', text: msg, icon: 'success', confirmButtonColor: '#2bcbba' });
+        Swal.fire({ title: 'Success!', text: 'Inventory action completed and logged.', icon: 'success', confirmButtonColor: '#2bcbba' });
         window.history.replaceState({}, document.title, window.location.pathname);
     }
 </script>

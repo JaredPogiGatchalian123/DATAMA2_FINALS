@@ -8,6 +8,7 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'customer') {
 }
 
 $selectedVet = $_GET['vet_id'] ?? null;
+$owner_id = $_SESSION['owner_id']; // Get the current owner's ID
 ?>
 <!DOCTYPE html>
 <html>
@@ -26,6 +27,7 @@ $selectedVet = $_GET['vet_id'] ?? null;
             box-shadow: 0 25px 60px rgba(0,0,0,0.1);
             border: 1px solid rgba(255,255,255,0.3);
             position: relative;
+            margin: 50px auto;
         }
         .booking-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; text-align: left; }
         .form-header { text-align: center; margin-bottom: 35px; }
@@ -62,7 +64,6 @@ $selectedVet = $_GET['vet_id'] ?? null;
 </head>
 <body class="auth-body">
 
-<!-- ERROR MODAL -->
 <?php if(isset($_GET['error'])): ?>
     <div class="error-modal-overlay">
         <div class="error-card" style="border-top: 6px solid #ff7675;">
@@ -78,7 +79,6 @@ $selectedVet = $_GET['vet_id'] ?? null;
     </div>
 <?php endif; ?>
 
-<!-- SUCCESS MODAL -->
 <?php if(isset($_GET['success'])): ?>
     <div class="error-modal-overlay">
         <div class="error-card" style="border-top: 6px solid #00b894;">
@@ -104,6 +104,28 @@ $selectedVet = $_GET['vet_id'] ?? null;
     <form action="process_booking.php" method="POST">
         <div class="booking-grid">
             <div class="form-left">
+                <div class="input-box">
+                    <label><i class="fas fa-paw" style="color:var(--primary-teal); margin-right: 5px;"></i> Your Pet</label>
+                    <select name="pet_id" required>
+                        <?php
+                        // Fetching pets from the database
+                        $pets_stmt = $pdo->prepare("SELECT Pet_ID, Pet_Name, Pet_Type FROM Pet WHERE Owner_ID = ?");
+                        $pets_stmt->execute([$owner_id]);
+                        $pets_count = 0;
+                        while($p = $pets_stmt->fetch()) {
+                            $pets_count++;
+                            echo "<option value='{$p['Pet_ID']}'>{$p['Pet_Name']} ({$p['Pet_Type']})</option>";
+                        }
+                        
+                        if($pets_count === 0) {
+                            echo "<option value='' disabled selected>No pets found. Register a pet first!</option>";
+                        } else {
+                            echo "<option value='' disabled selected>-- Select a Pet --</option>";
+                        }
+                        ?>
+                    </select>
+                </div>
+
                 <div class="input-box">
                     <label><i class="fas fa-user-md" style="color:var(--primary-teal); margin-right: 5px;"></i> Veterinarian</label>
                     <select name="vet_id" required>
@@ -140,11 +162,17 @@ $selectedVet = $_GET['vet_id'] ?? null;
                     <label><i class="far fa-clock" style="color:var(--primary-teal); margin-right: 5px;"></i> Preferred Time</label>
                     <input type="time" name="apt_time" required>
                 </div>
+
+                <?php if($pets_count === 0): ?>
+                    <div style="background: #fff9db; padding: 15px; border-radius: 12px; font-size: 0.85rem; color: #f08c00; border: 1px solid #ffe066;">
+                        <i class="fas fa-info-circle"></i> It looks like you haven't registered any pets yet. Go back to your dashboard to add a pet before booking!
+                    </div>
+                <?php endif; ?>
             </div>
         </div>
 
         <div style="margin-top: 25px;">
-            <button type="submit" class="auth-btn" style="padding: 20px; font-size: 1.1rem; border-radius: 20px;">
+            <button type="submit" class="auth-btn" style="padding: 20px; font-size: 1.1rem; border-radius: 20px;" <?php echo ($pets_count === 0) ? 'disabled style="background: #adb5bd; cursor: not-allowed;"' : ''; ?>>
                 Confirm My Visit <i class="fas fa-chevron-right" style="margin-left:12px;"></i>
             </button>
             
